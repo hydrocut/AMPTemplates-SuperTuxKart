@@ -1,0 +1,43 @@
+[
+    {
+        "UpdateStageName": "Fichier du template : lancer-stk.sh",
+        "UpdateSourcePlatform": "Linux",
+        "UpdateSource": "FetchURL",
+        "UpdateSourceData": "https://raw.githubusercontent.com/hydrocut/AMPTemplates-SuperTuxKart/main/scripts/lancer-stk.sh",
+        "UpdateSourceArgs": "lancer-stk.sh",
+        "UpdateSourceTarget": "{{$FullBaseDir}}",
+        "UnzipUpdateSource": false,
+        "OverwriteExistingFiles": true,
+        "SkipOnFailure": false
+    },
+    {
+        "UpdateStageName": "Fichier du template : reglages_stk.py",
+        "UpdateSourcePlatform": "Linux",
+        "UpdateSource": "FetchURL",
+        "UpdateSourceData": "https://raw.githubusercontent.com/hydrocut/AMPTemplates-SuperTuxKart/main/scripts/reglages_stk.py",
+        "UpdateSourceArgs": "reglages_stk.py",
+        "UpdateSourceTarget": "{{$FullBaseDir}}",
+        "UnzipUpdateSource": false,
+        "OverwriteExistingFiles": true,
+        "SkipOnFailure": false
+    },
+    {
+        "UpdateStageName": "Fichier du template : AMP_reglages.txt",
+        "UpdateSourcePlatform": "All",
+        "UpdateSource": "FetchURL",
+        "UpdateSourceData": "https://raw.githubusercontent.com/hydrocut/AMPTemplates-SuperTuxKart/main/scripts/AMP_reglages.txt",
+        "UpdateSourceArgs": "AMP_reglages.txt",
+        "UpdateSourceTarget": "{{$FullBaseDir}}",
+        "UnzipUpdateSource": false,
+        "OverwriteExistingFiles": true,
+        "SkipOnFailure": false
+    },
+    {
+        "UpdateStageName": "SuperTuxKart : binaire Linux officiel (GitHub supertuxkart/stk-code)",
+        "UpdateSourcePlatform": "Linux",
+        "UpdateSource": "Executable",
+        "UpdateSourceData": "/bin/bash",
+        "UpdateSourceArgs": "\"{{$FullBaseDir}}lancer-stk.sh\" installer \"{{VersionJeu}}\"",
+        "SkipOnFailure": false
+    }
+]

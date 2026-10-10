@@ -1,0 +1,14 @@
+# Ce depot ne contient que le template : le jeu (binaire officiel, ~820 Mo) est
+# telecharge depuis GitHub par l'Update. Rien de ce qui suit ne doit y entrer.
+supertuxkart/
+jeu/
+jeu.nouveau/
+jeu.ancien/
+donnees/
+serveur.xml*
+accueil.txt
+reglages-amp.txt
+__pycache__/
+
+# Notes internes de TeamKit (essais, etapes), pas dans le depot public
+FAISABILITE.md

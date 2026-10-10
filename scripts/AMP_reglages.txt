@@ -1,0 +1,15 @@
+# reglages-amp.txt - ECRIT PAR AMP a chaque demarrage, a partir de AMP_reglages.txt.
+# Une ligne cle=valeur par reglage de l'onglet Configuration, valeur brute.
+# Lu par reglages_stk.py, qui controle les valeurs et ecrit serveur.xml.
+# Ne le modifie pas a la main : il est reecrit. Le compte STK n'est PAS ici
+# (il passe par des variables d'environnement, jamais sur le disque).
+nom={{NomServeur}}
+accueil={{MessageAccueil}}
+mot_de_passe={{MotDePasseServeur}}
+mode={{ModeJeu}}
+difficulte={{Difficulte}}
+pistes_gp={{PistesGrandPrix}}
+foot_buts={{FootAuxButs}}
+sans_proprietaire={{SansProprietaire}}
+joueurs_depart={{JoueursPourLancer}}
+visibilite={{Visibilite}}
