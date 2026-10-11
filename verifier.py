@@ -177,7 +177,11 @@ if set(params['ModeJeu']['EnumValues']) != set(rs.MODES):
     soucis.append('modes de jeu : liste AMP %s, script %s' % (sorted(params['ModeJeu']['EnumValues']), sorted(rs.MODES)))
 if set(params['Difficulte']['EnumValues']) != set(rs.DIFFICULTES):
     soucis.append('difficultes : liste AMP et script differentes')
-for p in ('FootAuxButs', 'SansProprietaire'):
+if set(rs.MODES_AVEC_BOTS) != {'3', '4'}:
+    soucis.append('bots : SuperTuxKart 1.5 ne les accepte qu en modes 3 et 4 (ServerLobby::supportsAI)')
+if str(params['NombreBots'].get('MaxValue')) != str(rs.MAX_BOTS):
+    soucis.append('nombre de bots : maximum AMP et script differents')
+for p in ('FootAuxButs', 'SansProprietaire', 'BotsIA'):
     if set(params[p]['EnumValues']) != {'oui', 'non'}:
         soucis.append('%s : choix oui / non attendus (lus par oui_non)' % p)
 if set(params['Visibilite']['EnumValues']) != {'public', 'ip'} or '"$visibilite" = "public"' not in lanceur:
@@ -317,6 +321,37 @@ try:
         n += 1
         if not m or len(set(m.groups())) != 3:
             soucis.append('ports du stk_config : trois ports differents exiges par le jeu (%s)' % (m and m.groups()))
+        # Bots IA : nombre ecrit pour le lanceur et ai-handling, selon le mode et les places
+        def bots_lus():
+            with io.open(os.path.join(dossier, rs.BOTS_FICHIER), encoding='utf-8') as f:
+                return f.read().strip()
+        CAS_BOTS = [
+            ({'BotsIA': 'non'}, '8', '0', 'false'),
+            ({'BotsIA': 'oui', 'NombreBots': '3', 'ModeJeu': '3'}, '8', '3', 'true'),
+            ({'BotsIA': 'oui', 'NombreBots': '3', 'ModeJeu': '4'}, '8', '3', 'true'),
+            ({'BotsIA': 'oui', 'NombreBots': '19', 'ModeJeu': '3'}, '8', '7', 'true'),
+            ({'BotsIA': 'oui', 'NombreBots': '5', 'ModeJeu': '3'}, '1', '0', 'false'),
+        ] + [({'BotsIA': 'oui', 'NombreBots': '3', 'ModeJeu': m}, '8', '0', 'false') for m in ('0', '1', '6', '7', '8')]
+        for change, joueurs, nb, ai in CAS_BOTS:
+            vals = dict(defauts)
+            vals.update(change)
+            t = passer(vals, joueurs=joueurs)
+            n += 1
+            if t.startswith('REFUS') or bots_lus() != nb or valeur_xml(t, 'ai-handling') != [ai]:
+                soucis.append('bots %s (%s places) : %s bots / ai-handling %s au lieu de %s / %s' % (
+                    change, joueurs, t[:60] if t.startswith('REFUS') else bots_lus(), valeur_xml(t, 'ai-handling'), nb, ai))
+        # Instance creee avant l'option : AMP laisse {{BotsIA}} / {{NombreBots}} tels quels.
+        vieux = {k: v for k, v in defauts.items() if k not in ('BotsIA', 'NombreBots')}
+        t = passer(vieux)
+        n += 1
+        if t.startswith('REFUS') or bots_lus() != '0' or valeur_xml(t, 'ai-handling') != ['false']:
+            soucis.append('instance sans les reglages des bots : le serveur doit demarrer sans bots (%s)' % t[:80])
+        for v in ('0', '20', '', 'trois'):
+            vals = dict(defauts)
+            vals.update({'BotsIA': 'oui', 'NombreBots': v})
+            n += 1
+            if not passer(vals).startswith('REFUS'):
+                soucis.append('nombre de bots %r : aurait du etre refuse' % v)
         # version de fichier hors plage : le jeu effacerait tout, le script recree
         with io.open(xml, 'w', encoding='utf-8') as f:
             f.write('<?xml version="1.0"?>\n<server-config version="3" >\n</server-config>\n')
@@ -361,6 +396,12 @@ for besoin, pourquoi in [
     ('--stk-config=stk_config_teamkit.xml', 'port de decouverte d AMP'),
     ('releases/latest', 'derniere version stable par defaut'),
     ('unset STK_MOT_DE_PASSE', 'le mot de passe ne doit pas suivre le jeu'),
+    ('setpriv --pdeathsig TERM -- /bin/bash "$ICI/lancer-stk.sh" bots "$port" "$bots" </dev/null &',
+     'bots : rattaches au serveur, sans voler la console d AMP'),
+    ('--connect-now="127.0.0.1:$port" --network-ai="$n"', 'bots : client officiel du jeu, en local'),
+    ('bots) bots "$2" "$3" ;;', 'mode bots du lanceur'),
+    ('export XDG_CONFIG_HOME="$ICI/donnees/bots/config"', 'bots : profil separe de celui du serveur'),
+    ('[ "$essai" -ge 5 ]', 'bots : relance limitee, pas de boucle infinie'),
 ]:
     if besoin not in lanceur:
         soucis.append('lanceur : %s (%s)' % (besoin, pourquoi))
@@ -384,7 +425,7 @@ else:
 D = 'Sat Oct 10 17:53:53 2026 '
 ESSAIS = [
     ('Console.AppReadyRegex', 'Sat Oct 10 17:53:44 2026 [info   ] STKHost: Listening has been started.', {}),
-    ('Console.UserJoinRegex', D + '[info   ] ServerLobby: New player Bot 1 with online id 0 from 127.0.0.1:45266 with AI.', {'username': 'Bot 1'}),
+    ('Console.UserJoinRegex', D + '[info   ] ServerLobby: New player Bot1 with online id 0 from 192.168.1.20:2758 with SuperTuxKart/1.5 (Linux).', {'username': 'Bot1'}),
     # format du code (server_lobby.cpp + getUserAgentString) : joueur humain, compte en ligne
     ('Console.UserJoinRegex', D + '[info   ] ServerLobby: New player Kévin_42 with online id 123456 from 203.0.113.7:2758 with SuperTuxKart/1.5 (Windows).', {'username': 'Kévin_42'}),
     ('Console.UserLeaveRegex', 'Sat Oct 10 17:54:18 2026 [info   ] ServerLobby: Bot 1 disconnected', {'username': 'Bot 1'}),
@@ -399,6 +440,8 @@ for cle, ligne, attendu in ESSAIS:
     if not m or any(m.group(k) != v for k, v in attendu.items()):
         soucis.append('%s ne reconnait pas : %r' % (cle, ligne))
 PIEGES = [
+    # les bots IA (version « AI ») ne doivent pas entrer dans la liste des joueurs d'AMP
+    ('Console.UserJoinRegex', D + '[info   ] ServerLobby: New player Bot 1 with online id 0 from 127.0.0.1:45266 with AI.'),
     ('Console.UserJoinRegex', 'Sat Oct 10 17:53:53 2026 [info   ] STKHost: 127.0.0.1:45266 has just connected. There are now 1 peers.'),
     ('Console.UserJoinRegex', '1: 127.0.0.1:45266 AI'),
     ('Console.UserLeaveRegex', 'Sat Oct 10 17:54:18 2026 [info   ] STKHost: 127.0.0.1:45266 has just disconnected. There are now 0 peers.'),

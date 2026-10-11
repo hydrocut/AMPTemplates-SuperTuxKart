@@ -1,5 +1,5 @@
 Meta.DisplayName=SuperTuxKart (TeamKit)
-Meta.Description=Serveur de SuperTuxKart, la course de karts libre et gratuite : le binaire Linux OFFICIEL (GitHub supertuxkart/stk-code), meme version que les joueurs (derniere stable a chaque Update, 1.5 au 10/10/2026), lance sans affichage avec --server-config. Course, contre-la-montre, grand prix, bataille, capture du drapeau, football. Liste publique officielle avec un compte STK gratuit, sinon joignable par IP:port. Port 2759 en UDP (+ 2757 en UDP pour la decouverte). Joueurs visibles dans AMP, console d'AMP branchee sur la console reseau du jeu (listpeers, kick, quit).
+Meta.Description=Serveur de SuperTuxKart, la course de karts libre et gratuite : le binaire Linux OFFICIEL (GitHub supertuxkart/stk-code), meme version que les joueurs (derniere stable a chaque Update, 1.5 au 10/10/2026), lance sans affichage avec --server-config. Course, contre-la-montre, grand prix, bataille, capture du drapeau, football. Bots IA en option (course et contre-la-montre) pour completer les courses d'un joueur seul. Liste publique officielle avec un compte STK gratuit, sinon joignable par IP:port. Port 2759 en UDP (+ 2757 en UDP pour la decouverte). Joueurs visibles dans AMP, console d'AMP branchee sur la console reseau du jeu (listpeers, kick, quit).
 Meta.OS=Linux
 Meta.Arch=x86_64
 Meta.AarchSupport=NotSupported
@@ -95,7 +95,7 @@ Console.FilterMatchRegex=
 Console.FilterMatchReplacement=
 Console.ThrowawayMessageRegex=^(?:\w{3} \w{3} \d\d \d\d:\d\d:\d\d \d{4} )?\[info\s*\] (?:ServerLobby: (?:Synchronous message|Message) of type \d+ received\.|NetworkPlayerController: New network player controller\.|ProtocolManager: A \d+\w+ protocol has been (?:started|terminated)\.|Singleton: Destroyed singleton\.|\[FileManager\]: Asset \d+ will be loaded from '.*'\.)$
 Console.AppReadyRegex=^(?:\w{3} \w{3} \d\d \d\d:\d\d:\d\d \d{4} )?\[info\s*\] STKHost: Listening has been started\.$
-Console.UserJoinRegex=^\w{3} \w{3} \d\d \d\d:\d\d:\d\d \d{4} \[info\s*\] ServerLobby: New player (?<username>.+?) with online id \d+ from \S+ with .*\.$
+Console.UserJoinRegex=^\w{3} \w{3} \d\d \d\d:\d\d:\d\d \d{4} \[info\s*\] ServerLobby: New player (?<username>.+?) with online id \d+ from \S+ with (?!AI\.$).*\.$
 Console.UserLeaveRegex=^\w{3} \w{3} \d\d \d\d:\d\d:\d\d \d{4} \[info\s*\] ServerLobby: (?<username>.+) disconnected$
 Console.UserChatRegex=
 Console.UpdateAvailableRegex=

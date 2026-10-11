@@ -158,9 +158,41 @@
         "EnumValues": {}
     },
     {
+        "DisplayName": "Bots IA",
+        "Category": "SuperTuxKart:public",
+        "Subcategory": "Bots IA:smart_toy:4",
+        "Description": "Oui : un second SuperTuxKart sans affichage, lancé dans le conteneur, fait rouler des karts pilotés par l'ordinateur pour compléter la course d'un joueur seul (méthode officielle : --network-ai + ai-handling, NETWORKING.md). Seulement en course et en contre-la-montre : en grand prix, bataille, football et capture du drapeau, le jeu ne les accepte pas et ils restent coupés (message dans la console). Sans joueur humain, les bots ne roulent pas. Ils n'entrent pas dans la liste des joueurs d'AMP, mais la liste des serveurs du jeu les compte (un serveur vide avec 3 bots s'affiche 3/8). Relancés tout seuls s'ils tombent (4 fois au plus).",
+        "Keywords": "bots,ia,ai,ordinateur,network-ai,ai-handling",
+        "FieldName": "BotsIA",
+        "InputType": "enum",
+        "ParamFieldName": "BotsIA",
+        "IncludeInCommandLine": false,
+        "DefaultValue": "non",
+        "EnumValues": {
+            "non": "Non",
+            "oui": "Oui, compléter les courses avec des bots"
+        }
+    },
+    {
+        "DisplayName": "Nombre de bots",
+        "Category": "SuperTuxKart:public",
+        "Subcategory": "Bots IA:smart_toy:4",
+        "Description": "Bots en course quand un seul joueur humain est là ; chaque joueur en plus prend la place d'un bot (règle du jeu : bots = ce nombre - joueurs + 1), et au-delà il n'y a plus de bot. Ramené automatiquement à « Nombre de joueurs - 1 ». Chaque bot ajoute un peu de calcul au serveur (voir le README).",
+        "Keywords": "bots,nombre,ia,ai",
+        "FieldName": "NombreBots",
+        "InputType": "number",
+        "MinValue": "1",
+        "MaxValue": "19",
+        "ParamFieldName": "NombreBots",
+        "IncludeInCommandLine": false,
+        "DefaultValue": "3",
+        "Suffix": "bots",
+        "EnumValues": {}
+    },
+    {
         "DisplayName": "Visibilité",
         "Category": "SuperTuxKart:public",
-        "Subcategory": "Liste publique officielle:public:4",
+        "Subcategory": "Liste publique officielle:public:5",
         "Description": "Liste publique : le serveur apparaît dans En ligne > Réseau global pour tous les joueurs ; il faut un compte STK (réglages ci-dessous). Sans compte, ou si la connexion du compte échoue, le serveur démarre quand même et reste joignable par son adresse IP (En ligne > Entrez l'adresse du serveur, puis IP:port).",
         "Keywords": "public,liste,wan,lan,annonce,visibilite",
         "FieldName": "Visibilite",
@@ -176,7 +208,7 @@
     {
         "DisplayName": "Compte STK : identifiant",
         "Category": "SuperTuxKart:public",
-        "Subcategory": "Liste publique officielle:public:4",
+        "Subcategory": "Liste publique officielle:public:5",
         "Description": "Nom d'utilisateur d'un compte gratuit créé sur https://online.supertuxkart.net/register.php (ou dans le jeu). Obligatoire pour la liste publique : c'est la règle du jeu (NETWORKING.md). Le même compte peut servir pour plusieurs serveurs.",
         "Keywords": "compte,stk,login,identifiant,utilisateur,wan",
         "FieldName": "CompteSTK",
@@ -189,7 +221,7 @@
     {
         "DisplayName": "Compte STK : mot de passe",
         "Category": "SuperTuxKart:public",
-        "Subcategory": "Liste publique officielle:public:4",
+        "Subcategory": "Liste publique officielle:public:5",
         "Description": "Utilisé à chaque démarrage pour connecter le compte, puis le jeu garde une session dans donnees/config. Jamais écrit dans un fichier ni affiché dans la console. Évite le guillemet droit \" et l'antislash \\.",
         "Keywords": "compte,stk,password,mot de passe,wan",
         "FieldName": "MotDePasseSTK",
@@ -202,7 +234,7 @@
     {
         "DisplayName": "Version du jeu",
         "Category": "SuperTuxKart:public",
-        "Subcategory": "Installation:download:5",
+        "Subcategory": "Installation:download:6",
         "Description": "Vide (conseillé) = à chaque Update, la dernière version stable officielle (GitHub supertuxkart/stk-code), celle des joueurs ; rien n'est retéléchargé si elle est déjà installée. Sinon un numéro précis, par exemple 1.5. Les joueurs doivent avoir la même version que le serveur. Appliqué au prochain Update.",
         "Keywords": "version,mise a jour,update,release",
         "FieldName": "VersionJeu",

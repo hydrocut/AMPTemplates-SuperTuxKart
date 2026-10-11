@@ -14,6 +14,8 @@ Appele par lancer-stk.sh juste avant le demarrage du serveur :
 4. ecrit le message d'accueil dans accueil.txt (UTF-8, lu tel quel par le jeu) ;
 5. ecrit jeu/data/stk_config_teamkit.xml, copie de stk_config.xml avec le port de
    decouverte choisi dans AMP (le jeu le lit avec --stk-config).
+6. ecrit bots-teamkit.txt : nombre de bots IA a lancer (0 si desactives ou si le
+   mode de jeu ne les accepte pas), lu par lancer-stk.sh.
 
 Pourquoi tout ca : SuperTuxKart lit son XML avec irrXML, qui ne decode PAS les
 entites numeriques, puis passe le nom du serveur dans StringUtils::xmlDecode, qui
@@ -39,6 +41,9 @@ MODES = {
 DIFFICULTES = {'0': 'novice', '1': 'intermediaire', '2': 'expert', '3': 'SuperTux'}
 NOM_PAR_DEFAUT = 'TeamKit.fr'
 ACCUEIL_FICHIER = 'accueil.txt'
+BOTS_FICHIER = 'bots-teamkit.txt'
+MODES_AVEC_BOTS = ('3', '4')   # ServerLobby::supportsAI()
+MAX_BOTS = 19                  # 20 karts au plus (stk_config.xml) : 19 bots + 1 joueur
 EN_TETE = (
     '<?xml version="1.0"?>\n'
     '<server-config version="%d" >\n\n'
@@ -129,6 +134,7 @@ def construire(r, port, decouverte, joueurs_max, wan):
     joueurs = entier(joueurs_max, 'nombre de joueurs (AMP)', 1, 255)
     if depart > joueurs:
         depart = joueurs
+    bots, message_bots = calculer_bots(r, mode, joueurs)
     cles = {
         'server-name': encoder_stk(nom),
         'server-port': str(entier(port, 'port du jeu', 1, 65535)),
@@ -142,13 +148,49 @@ def construire(r, port, decouverte, joueurs_max, wan):
         'motd': ACCUEIL_FICHIER if accueil else '',
         'owner-less': 'true' if sans_proprio else 'false',
         'min-start-game-players': str(depart),
+        # Bots : le jeu ajoute N - (joueurs humains) + 1 bots et ne compte pas
+        # le client des bots comme un joueur (server_lobby.cpp, stk_host.cpp).
+        'ai-handling': 'true' if bots else 'false',
     }
     entier(decouverte, 'port de decouverte', 1, 65535)
     resume = ('TeamKit : serveur "%s", %s, difficulte %s, %d joueurs maximum, %s, %s.' % (
         nom, MODES[mode], DIFFICULTES[diff], joueurs,
         'mot de passe actif' if mdp else 'sans mot de passe',
         'liste publique officielle' if wan else 'joignable par adresse IP'))
-    return cles, accueil, resume
+    if message_bots:
+        resume += '\n' + message_bots
+    return cles, accueil, resume, bots
+
+
+def calculer_bots(r, mode, joueurs):
+    """Nombre de bots a lancer (0 = aucun) et message pour la console.
+
+    ServerLobby::supportsAI() (STK 1.5) : seulement les modes 3 (course) et 4
+    (contre-la-montre). En grand prix, bataille, football et capture du drapeau,
+    le jeu ignore le client des bots : on ne le lance pas du tout."""
+    brut = (r.get('bots') or '').strip()
+    if not brut or '{' * 2 in brut:
+        # Instance creee avant l'option : AMP garde son ancien formulaire de reglages
+        # et laisse la balise BotsIA (entre doubles accolades) telle quelle. Pas de bots, et surtout pas de refus.
+        return 0, ('TeamKit : reglages des bots IA absents du formulaire de cette instance '
+                   '(creee avant l option) : bots coupes. Voir le README pour mettre le formulaire a jour.')
+    if not oui_non(brut, 'bots IA'):
+        return 0, ''
+    n = entier(r.get('nombre_bots'), 'nombre de bots IA', 1, MAX_BOTS)
+    if mode not in MODES_AVEC_BOTS:
+        return 0, ('TeamKit : bots IA DESACTIVES : le mode %s ne les accepte pas. SuperTuxKart '
+                   'ne fait rouler des bots qu en course et en contre-la-montre.' % MODES[mode])
+    plafond = joueurs - 1
+    if plafond < 1:
+        return 0, 'TeamKit : bots IA DESACTIVES : il faut au moins 2 places sur le serveur.'
+    message = ''
+    if n > plafond:
+        message = ('TeamKit : %d bots demandes, ramenes a %d (nombre de joueurs - 1, pour que '
+                   'humains + bots tiennent dans les places du serveur).\n' % (n, plafond))
+        n = plafond
+    message += ('TeamKit : bots IA actifs : avec 1 joueur, %d bot(s) en course ; chaque joueur en plus '
+                'prend la place d un bot. Sans joueur humain, les bots attendent sans rouler.' % n)
+    return n, message
 
 
 def versions_serveur(dossier_data):
@@ -225,7 +267,7 @@ def principal(argv):
         raise Refus('usage : reglages_stk.py <reglages> <serveur.xml> <jeu/data> <port> <decouverte> <joueurs> <wan oui|non>')
     _, reglages, xml, data, port, decouverte, joueurs, wan = argv
     r = lire_reglages(reglages)
-    cles, accueil, resume = construire(r, port, decouverte, joueurs, wan == 'oui')
+    cles, accueil, resume, bots = construire(r, port, decouverte, joueurs, wan == 'oui')
     vmin, vmax, stk_config = versions_serveur(data)
     ecrire_stk_config(stk_config, data, int(decouverte))
     dossier = os.path.dirname(os.path.abspath(xml))
@@ -236,6 +278,9 @@ def principal(argv):
     elif os.path.exists(chemin_accueil):
         os.remove(chemin_accueil)
     mettre_a_jour_xml(xml, cles, vmin, vmax)
+    # Lu par lancer-stk.sh : nombre de bots a lancer (0 = aucun).
+    with io.open(os.path.join(dossier, BOTS_FICHIER), 'w', encoding='utf-8', newline='\n') as f:
+        f.write('%d\n' % bots)
     print(resume)
 
 

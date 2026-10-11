@@ -13,3 +13,5 @@ foot_buts={{FootAuxButs}}
 sans_proprietaire={{SansProprietaire}}
 joueurs_depart={{JoueursPourLancer}}
 visibilite={{Visibilite}}
+bots={{BotsIA}}
+nombre_bots={{NombreBots}}

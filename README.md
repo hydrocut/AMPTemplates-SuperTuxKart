@@ -42,7 +42,7 @@ The three `scripts/` files are fetched from this repository (raw.githubuserconte
 `main`) at each Update, so **the repository must be public**.
 
 Instance layout: `jeu/` (game, replaced as a whole on version change), `serveur.xml` (server config),
-`accueil.txt` (welcome message), `donnees/config/supertuxkart/config-0.10/` (saved STK session,
+`accueil.txt` (welcome message), `bots-teamkit.txt` (bots to start, written by the script), `donnees/bots/` (bot client profile), `donnees/config/supertuxkart/config-0.10/` (saved STK session,
 `serveur.log`), `donnees/supertuxkart/addons/` (add-ons).
 
 ## How the server is started
@@ -87,6 +87,8 @@ Details that cost a test each:
 | Football : gagner aux buts | `soccer-goal-target` | no (timed matches) |
 | Serveur sans propriétaire | `owner-less` | **yes** (games start by themselves, nobody can kick) |
 | Joueurs pour lancer une partie | `min-start-game-players` | 2 |
+| Bots IA | `ai-handling` + a `--network-ai` client | no (see *AI bots*) |
+| Nombre de bots | `--network-ai=<n>` | 3 (1–19, capped at players − 1) |
 | Visibilité | `wan-server` | public list (falls back to IP-only, see below) |
 | Compte STK : identifiant / mot de passe | `--init-user --login --password` | empty |
 | Version du jeu | Update step | empty = latest stable |
@@ -137,13 +139,54 @@ Real lines (SuperTuxKart 1.5):
 
 ```
 Sat Oct 10 17:53:44 2026 [info   ] STKHost: Listening has been started.                                  <- AppReadyRegex
-Sat Oct 10 17:53:53 2026 [info   ] ServerLobby: New player Bot 1 with online id 0 from 127.0.0.1:45266 with AI.   <- UserJoinRegex
-Sat Oct 10 17:54:18 2026 [info   ] ServerLobby: Bot 1 disconnected                                        <- UserLeaveRegex
+Sun Oct 11 07:20:39 2026 [info   ] ServerLobby: New player Player with online id 0 from 127.0.0.1:60368 with SuperTuxKart/1.5 (Linux).   <- UserJoinRegex
+Sun Oct 11 07:20:06 2026 [info   ] ServerLobby: New player Bot 1 with online id 0 from 127.0.0.1:59689 with AI.   <- NOT a player (AI bot)
+Sun Oct 11 07:22:38 2026 [info   ] ServerLobby: Player disconnected                                       <- UserLeaveRegex
 ```
+
+Lines ending in `with AI.` come from the AI bot client (its user agent is literally `AI`,
+`client_lobby.cpp`): `UserJoinRegex` skips them, so bots never show up in AMP's player list and an
+instance with only bots looks empty in AMP. Their `Bot N disconnected` lines still match the leave regex,
+which is harmless (AMP removes a name it does not list).
 
 `Console.ThrowawayMessageRegex` drops pure noise (`Message of type N received`, `New network player
 controller`, `ProtocolManager … protocol has been started/terminated`, `Destroyed singleton`, the 17
 `Asset N will be loaded` lines at start).
+
+## AI bots
+
+Optional, off by default. Official mechanism (`NETWORKING.md`, `ai-handling`: “auto add / remove AI
+connected with network-ai=x, which will kick N - 1 bot(s) where N is the number of human players. Only use
+this for non-GP racing server”):
+
+- The start script launches, before handing over to the game, a supervisor (`lancer-stk.sh bots`) tied to
+  the server with `setpriv --pdeathsig TERM`. It waits until the server's UDP port is bound, then runs a
+  second, windowless SuperTuxKart: `--connect-now=127.0.0.1:<port> --network-ai=<n> --no-graphics`
+  (plus `--server-password` when the server has one), with its own profile in `donnees/bots/` and the
+  **same add-on folder as the server** (otherwise track voting would be limited to official tracks).
+  Its log: `donnees/bots/config/supertuxkart/config-0.10/stdout.log`.
+- If the bot client dies, it is restarted after 10, 20, 30, 40 s; after 5 failures in a row it gives up
+  until the next server start (a client that ran 10 minutes resets the counter). Tested with `kill -9`.
+- When the server stops, the supervisor and the bot client stop with it (tested: no leftover process,
+  server exit code 0).
+- **Modes**: `ServerLobby::supportsAI()` accepts only race (3) and time trial (4). In grand prix, battle,
+  soccer and capture the flag the game ignores the AI client, so the script does not start it and prints
+  `bots IA DESACTIVES : le mode … ne les accepte pas` (tested for 0, 6, 7, 8). `ai-handling` is written
+  `true` only when bots really run.
+- **Count**: with H humans the game races `n − H + 1` bots (`server_lobby.cpp`), none once H > n.
+  Tested: n = 4 → 1 human + 4 bots, 2 humans + 3 bots; n = 7 → 1 human + 7 bots (8 karts). The script
+  caps n at *max players − 1* so humans + bots fit the server's slots (12 asked with 8 slots → 7).
+- **No human, no race**: the AI client is not counted as a player (`STKHost::updatePlayers` skips it with
+  `ai-handling`), so `min-start-game-players` is never reached by bots alone — tested, no race started.
+- **Visible side effect**: the in-game server list counts the bots in the lobby (`m_lobby_players`):
+  an empty server with 4 bots shows **4/8** (measured on the LAN discovery answer). The public list
+  receives the AI count separately (`current-ai`), how the client displays it was not checked.
+- `ai-anywhere` is not needed: `127.0.0.1` is a LAN address for the game.
+- **Instances created before this option** keep their old settings form (AMP copies the manifest at
+  creation; *Fetch latest* does not update it). After an Update, `reglages-amp.txt` then contains a literal
+  `{{BotsIA}}`: the script treats it as *no bots* and says so, the server still starts. To get the two new
+  settings (and the new `UserJoinRegex` that hides bots), the instance's manifest and console keys must be
+  refreshed, or the instance recreated.
 
 ## Add-on tracks and karts
 
@@ -158,8 +201,8 @@ players missing too many official tracks/karts. Add-ons are kept across game upd
 
 | | |
 |---|---|
-| RAM | ~35 MB idle; 85–135 MB during races (8 karts: 87 MB) |
-| CPU | ~2 % of a core during an 8-kart race on the TeamKit host |
+| RAM | ~35 MB idle; 85–135 MB during races (8 karts: 87 MB). **With bots**, add the bot client: ~35 MB idle, 57 MB (4 bots) to 87 MB (7 bots) in a race; measured peak server + bots = 80 + 87 MB with 1 human + 7 bots |
+| CPU | ~2 % of a core during an 8-kart race on the TeamKit host; the bot client adds about as much |
 | Disk | ~820 MB (`jeu/`), plus ~1.6 GB **peak** during a version change (old + new) |
 | Start | < 1 s to the ready line (plus up to 20 s for the account login in public mode) |
 
@@ -204,6 +247,11 @@ retéléchargé si elle est déjà là). Conteneur `cubecoders/ampbase:debian`. 
 - **Réglages en français** : nom (TeamKit par défaut), message d'accueil (TeamKit + Discord), nombre
   de joueurs, mot de passe, mode (course, contre-la-montre, grand prix, bataille, capture du drapeau,
   football), difficulté, pistes par grand prix, sans propriétaire, version.
+- **Bots IA** (option, coupée par défaut) : un second SuperTuxKart sans affichage complète la course
+  d'un joueur seul (course et contre-la-montre seulement ; coupés avec un message dans les autres modes).
+  N bots avec 1 joueur, chaque joueur en plus remplace un bot ; sans humain, pas de course. Invisibles
+  dans la liste des joueurs d'AMP, mais comptés dans la liste des serveurs du jeu (« 4/8 » à vide).
+  Relancés s'ils tombent (4 fois), arrêtés avec le serveur. +35 à 90 Mo de RAM.
 - **Addons** : déposés dans `donnees/supertuxkart/addons/tracks|karts/` ; les joueurs doivent avoir les
   mêmes (menu Extensions ou `/installaddon <id>`).
 - **Testé en vrai** le 10 oct. 2026 dans un conteneur jetable : 35 Mo de RAM au repos, ~90 à 135 Mo en

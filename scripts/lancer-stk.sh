@@ -148,6 +148,15 @@ demarrer() {
 
   python3 "$ICI/reglages_stk.py" reglages-amp.txt "$ICI/serveur.xml" "$JEU/data" "$port" "$decouverte" "$joueurs" "$wan" || exit 1
 
+  # Bots IA : un second processus, lance AVANT l'exec et rattache au jeu par
+  # --pdeathsig : il s'arrete tout seul quand le serveur s'arrete. Son entree est
+  # /dev/null (la console d'AMP reste au serveur), sa sortie va dans la console.
+  bots=$(head -n 1 "$ICI/bots-teamkit.txt" 2>/dev/null | tr -cd '0-9')
+  if [ -n "$bots" ] && [ "$bots" -gt 0 ]; then
+    STK_BOTS_MDP=$(sed -n 's/^mot_de_passe=//p' reglages-amp.txt | head -n 1 | tr -d '\r') \
+      setpriv --pdeathsig TERM -- /bin/bash "$ICI/lancer-stk.sh" bots "$port" "$bots" </dev/null &
+  fi
+
   # --log=nocolor : sans lui, chaque ligne arrive dans AMP avec des codes couleur ANSI.
   # --stk-config  : copie de stk_config.xml avec le port de decouverte d'AMP.
   # Entree : la console reseau du jeu tourne a 100 % d'un coeur des que son entree
@@ -159,8 +168,64 @@ demarrer() {
     < <(exec setpriv --pdeathsig KILL -- /bin/bash -c 'cat; exec sleep infinity')
 }
 
+# Bots IA (lance par demarrer, jamais par AMP directement) : attend que le serveur
+# ecoute, lance « supertuxkart --connect-now=127.0.0.1:<port> --network-ai=<n> »
+# sans affichage, le relance s'il tombe (5 essais au plus, puis abandon jusqu'au
+# prochain demarrage), et l'arrete quand le serveur s'arrete (SIGTERM recu par
+# --pdeathsig). Le serveur tourne avec ai-handling : il ne compte pas ces bots
+# comme des joueurs et n'en fait rouler que N - (joueurs humains) + 1.
+bots() {
+  local port="$1" n="$2" mdp="$STK_BOTS_MDP" hex essai=0 debut code pid="" arret=0
+  unset STK_BOTS_MDP
+  [[ "$port" =~ ^[0-9]+$ && "$n" =~ ^[0-9]+$ ]] || exit 1
+  environnement "$JEU"
+  # Profil et cache a part (le serveur ecrit les siens) ; meme dossier d'addons
+  # que le serveur, sinon le vote des pistes se limiterait aux pistes officielles.
+  export XDG_CONFIG_HOME="$ICI/donnees/bots/config" XDG_CACHE_HOME="$ICI/donnees/bots/cache" HOME="$ICI/donnees/bots"
+  mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
+  trap 'arret=1; [ -n "$pid" ] && kill -TERM "$pid" 2>/dev/null' TERM INT
+
+  # Le serveur ecoute quand son port UDP apparait dans /proc/net/udp*.
+  hex=$(printf ':%04X' "$port")
+  for _ in $(seq 1 120); do
+    [ "$arret" = 1 ] && exit 0
+    if awk -v p="$hex" 'substr($2, length($2) - 4) == p { t = 1 } END { exit !t }' /proc/net/udp /proc/net/udp6 2>/dev/null; then
+      break
+    fi
+    sleep 0.5
+  done
+  sleep 2
+
+  while [ "$arret" = 0 ]; do
+    debut=$(date +%s)
+    # Journal des bots : donnees/bots/config/supertuxkart/config-0.10/stdout.log (le jeu l'ecrit).
+    setpriv --pdeathsig TERM -- "$BIN" --connect-now="127.0.0.1:$port" --network-ai="$n" \
+      --no-graphics --log=nocolor ${mdp:+"--server-password=$mdp"} </dev/null >/dev/null 2>&1 &
+    pid=$!
+    echo "TeamKit : bots IA lances ($n bots, connectes au serveur en local)."
+    wait "$pid"
+    code=$?
+    # Le SIGTERM interrompt « wait » : on attend la vraie fin des bots.
+    [ "$arret" = 1 ] && { wait "$pid" 2>/dev/null; exit 0; }
+    pid=""
+    # Un client qui a tenu 10 minutes remet le compteur a zero.
+    [ $(( $(date +%s) - debut )) -ge 600 ] && essai=0
+    essai=$((essai + 1))
+    if [ "$essai" -ge 5 ]; then
+      echo "TeamKit : ATTENTION, les bots IA se sont arretes 5 fois de suite (code $code) : abandon jusqu'au prochain demarrage du serveur. Journal : donnees/bots/config/supertuxkart/config-0.10/stdout.log"
+      exit 1
+    fi
+    echo "TeamKit : les bots IA se sont arretes (code $code), relance dans $((essai * 10)) s (essai $essai sur 4)."
+    sleep $((essai * 10)) &
+    pid=$!
+    wait "$pid" 2>/dev/null
+    pid=""
+  done
+}
+
 case "$1" in
   installer) installer "$2" ;;
   demarrer) demarrer "$2" "$3" "$4" ;;
+  bots) bots "$2" "$3" ;;
   *) echo "usage : lancer-stk.sh installer [version] | demarrer <port> <port_decouverte> <joueurs_max>"; exit 1 ;;
 esac
