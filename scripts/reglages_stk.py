@@ -135,6 +135,13 @@ def construire(r, port, decouverte, joueurs_max, wan):
     if depart > joueurs:
         depart = joueurs
     bots, message_bots = calculer_bots(r, mode, joueurs)
+    if bots and depart > 1:
+        # Le client des bots ne compte pas comme un joueur : avec 2, un joueur seul attendait
+        # pour toujours un 2e humain malgre les bots (vu en vrai le 11/10/2026).
+        message_bots = (message_bots + '\n' if message_bots else '') + (
+            'TeamKit : bots actifs, "joueurs pour lancer une partie" ramene de %d a 1 : '
+            'un joueur seul peut rouler avec les bots.' % depart)
+        depart = 1
     cles = {
         'server-name': encoder_stk(nom),
         'server-port': str(entier(port, 'port du jeu', 1, 65535)),
